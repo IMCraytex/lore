@@ -1,0 +1,62 @@
+# Builds Linux binaries and publishes them as a GitHub Release, so that
+# scripts/install.sh can install them with --repo <this fork>.
+#
+# The asset names must stay in the form install.sh matches:
+#   <binary>-v<version>-<target-triple>.tar.gz
+name: Release binaries
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  TARGET: x86_64-unknown-linux-gnu
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # lore-storage uses unstable features, so the workspace needs nightly.
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: x86_64-unknown-linux-gnu
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Build
+        run: cargo build --release --target "$TARGET" -p lore-server -p lore-client
+
+      - name: Package
+        id: package
+        run: |
+          set -euo pipefail
+          version="$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)"
+          tag="v${version}-${GITHUB_RUN_NUMBER}"
+          mkdir -p dist
+          for binary in loreserver lore; do
+            tar -czf "dist/${binary}-${tag}-${TARGET}.tar.gz" \
+              -C "target/${TARGET}/release" "$binary"
+          done
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          ls -la dist
+
+      # Not a prerelease: install.sh resolves `latest` through the releases/latest
+      # endpoint, which skips prereleases.
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.package.outputs.tag }}
+          name: ${{ steps.package.outputs.tag }}
+          files: dist/*.tar.gz
+          prerelease: false
+          generate_release_notes: true
