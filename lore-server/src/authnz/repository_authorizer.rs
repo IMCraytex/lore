@@ -90,11 +90,42 @@ impl RepositoryAuthorizer for AuthClientAuthorizer {
     }
 }
 
+/// Whether an auth URL addresses a `UrcAuthApi` service that can answer a
+/// permission query.
+///
+/// An OIDC issuer cannot: the standards put the grant in the token and leave
+/// the resource server to decide locally against it, so there is no permission
+/// RPC to call.
+pub fn is_auth_service(auth_url: &str) -> bool {
+    !matches!(
+        auth_url.split_once("://").map(|(scheme, _)| scheme),
+        Some("oidc") | Some("oidc-http")
+    )
+}
+
 /// Creates the appropriate authorizer from an optional auth URL.
-/// Returns `AllowAllRepositoryAuthorizer` when no URL is configured.
+/// Returns `AllowAllRepositoryAuthorizer` when no URL is configured, and when
+/// the URL names an issuer rather than an auth service.
 pub fn repository_authorizer(auth_url: Option<String>) -> Arc<dyn RepositoryAuthorizer> {
     match auth_url {
-        Some(url) => Arc::new(AuthClientAuthorizer::new(url)),
-        None => Arc::new(AllowAllRepositoryAuthorizer),
+        Some(url) if is_auth_service(&url) => Arc::new(AuthClientAuthorizer::new(url)),
+        _ => Arc::new(AllowAllRepositoryAuthorizer),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_issuer_url_is_not_an_auth_service() {
+        assert!(!is_auth_service("oidc://auth.example.com/o/lore?client_id=lore"));
+        assert!(!is_auth_service("oidc-http://127.0.0.1:9000/o/lore?client_id=lore"));
+    }
+
+    #[test]
+    fn a_grpc_auth_url_is_an_auth_service() {
+        assert!(is_auth_service("ucs-auth://auth.example.com"));
+        assert!(is_auth_service("https://auth.example.com"));
     }
 }

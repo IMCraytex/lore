@@ -214,6 +214,10 @@ pub(crate) async fn check_repository_query_authorization(
     authorization: Option<String>,
     repository_id: RepositoryId,
 ) -> Result<(), Status> {
+    if !crate::authnz::repository_authorizer::is_auth_service(&auth_url) {
+        return Ok(());
+    }
+
     AuthClientAuthorizer::new(auth_url)
         .check_repository_access(authorization, repository_id)
         .await

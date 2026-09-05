@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Epic Games, Inc.
 // SPDX-License-Identifier: MIT
 pub mod exchange;
+pub mod oidc;
 pub mod ucs_auth;
 
 use std::collections::HashMap;
@@ -46,6 +47,10 @@ pub mod authentication {
             let ucs_auth = Arc::new(ucs_auth::UcsAuthentication);
             let _ = add("ucs-auth", ucs_auth.clone());
             let _ = add("https", ucs_auth); // transition fallback
+
+            let oidc = Arc::new(oidc::OidcAuthentication);
+            let _ = add("oidc", oidc.clone());
+            let _ = add("oidc-http", oidc);
         });
 
         let scheme = parse_scheme(auth_url)?;
