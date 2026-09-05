@@ -17,6 +17,7 @@ async-trait = { workspace = true }
 async-stream = { workspace = true }
 prost-types = { workspace = true }
 rand = { workspace = true }
+reqwest = { workspace = true }
 bytes = { workspace = true }
 dashmap = { workspace = true }
 futures = { workspace = true }
@@ -28,6 +29,7 @@ rcgen = { workspace = true }
 rustls = { workspace = true }
 rustls-native-certs = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
