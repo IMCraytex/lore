@@ -142,8 +142,12 @@ pub async fn exchange(
 
     let mut token = cache.get(&cache_key).cloned().unwrap_or_default();
 
-    // Token store key: "{auth_url}/{repository_id}" (no urc- prefix)
-    let token_store_key = format!("{auth_url}/{repo_id_str}");
+    // Token store key: "{auth_url}/{repository_id}" (no urc- prefix). The base
+    // drops any query, which the key format cannot carry.
+    let token_store_key = format!(
+        "{}/{repo_id_str}",
+        lore_credential::token_store_base(&auth_url)
+    );
 
     if !token.is_empty() {
         lore_trace!("Found cached authz token for {cache_key:?}");
@@ -320,7 +324,10 @@ pub async fn exchange_custom_resource(
 
     // Token store key: "{auth_url}/{resource_id}" -- same shape as the
     // repository variant, with the resource ID taking the repository slot.
-    let token_store_key = format!("{auth_url}/{resource_id}");
+    let token_store_key = format!(
+        "{}/{resource_id}",
+        lore_credential::token_store_base(&auth_url)
+    );
 
     if !token.is_empty() {
         lore_trace!("Found cached authz token for {cache_key:?}");

@@ -14,6 +14,7 @@ pub use jwt::insecure_decode_token;
 pub use jwt::user_info;
 pub use jwt::user_info_from_token;
 pub use jwt::verify_jwt_usage_for_remote;
+pub use token_store::token_store_base;
 pub use token_store::IdentityToken;
 pub use token_store::StoredIdentityInfo;
 pub use token_store::TokenStoreError;

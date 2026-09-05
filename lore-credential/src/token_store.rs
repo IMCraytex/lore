@@ -170,6 +170,23 @@ pub struct StoredIdentityInfo {
     pub token: String,
 }
 
+/// The auth URL as a token store key, without any query or fragment.
+///
+/// Keys are `"{auth_url}/{resource_id}"` and are split apart again by reading
+/// the URL's *path*. An auth URL carrying a query would put the resource inside
+/// that query instead, where the split cannot see it, so the query is dropped
+/// here rather than at each call site.
+pub fn token_store_base(auth_url: &str) -> String {
+    match url::Url::parse(auth_url) {
+        Ok(mut url) => {
+            url.set_query(None);
+            url.set_fragment(None);
+            url.as_str().trim_end_matches('/').to_string()
+        }
+        Err(_) => auth_url.trim_end_matches('/').to_string(),
+    }
+}
+
 /// Splits a token store key into (`auth_url`, `resource_id`).
 ///
 /// Authorization tokens are stored under `"{auth_url}/{repository_id}"` where
@@ -1452,5 +1469,35 @@ token = "tok-b"
         )
         .await;
         assert!(result.is_err());
+    }
+}
+
+#[cfg(test)]
+mod token_store_base_tests {
+    use super::*;
+
+    /// The regression: an OIDC auth URL carries client parameters in its query,
+    /// and appending a resource to that put the id inside the query where the
+    /// split could never find it.
+    #[test]
+    fn a_query_is_dropped_so_the_resource_lands_on_the_path() {
+        let auth = "oidc://auth.example.com/application/o/lore/?client_id=abc&scopes=openid+lore";
+        let key = format!("{}/{}", token_store_base(auth), "0".repeat(32));
+        let (base, resource) = split_remote_resource(&key);
+        assert_eq!(base, "oidc://auth.example.com/application/o/lore");
+        assert_eq!(resource, "0".repeat(32));
+    }
+
+    #[test]
+    fn a_url_without_a_query_is_unchanged_but_for_its_trailing_slash() {
+        assert_eq!(
+            token_store_base("ucs-auth://auth.example.com/"),
+            "ucs-auth://auth.example.com"
+        );
+    }
+
+    #[test]
+    fn an_unparseable_value_still_yields_a_key() {
+        assert_eq!(token_store_base("not a url/"), "not a url");
     }
 }
