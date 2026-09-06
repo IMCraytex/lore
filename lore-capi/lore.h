@@ -1869,6 +1869,24 @@ typedef struct lore_repository_config_get_event_data_t {
   struct lore_string_t value;
 } lore_repository_config_get_event_data_t;
 
+// Reported once per file that was read into the store.
+typedef struct lore_repository_seed_file_event_data_t {
+  // Path of the file that was seeded.
+  struct lore_string_t path;
+  // Size of the file in bytes.
+  uint64_t size;
+} lore_repository_seed_file_event_data_t;
+
+// Reported once when seeding finishes.
+typedef struct lore_repository_seed_end_event_data_t {
+  // Files read into the store.
+  uint64_t file_count;
+  // Total bytes read from the seed directory.
+  uint64_t byte_count;
+  // Files that could not be read, and were skipped.
+  uint64_t skipped_count;
+} lore_repository_seed_end_event_data_t;
+
 // Data for the event emitted when a repository dump starts.
 typedef struct lore_repository_dump_begin_event_data_t {
   // Repository identifier.
@@ -3501,6 +3519,10 @@ enum lore_event_id_t {
   LORE_EVENT_REPOSITORY_DATA,
   // A repository configuration value.
   LORE_EVENT_REPOSITORY_CONFIG_GET,
+  // One file read from a seed directory into the local store.
+  LORE_EVENT_REPOSITORY_SEED_FILE,
+  // Totals for a completed seeding run.
+  LORE_EVENT_REPOSITORY_SEED_END,
   // The start of a repository dump.
   LORE_EVENT_REPOSITORY_DUMP_BEGIN,
   // The end of a repository dump.
@@ -3831,6 +3853,8 @@ typedef struct lore_event_t {
     struct lore_dependency_resolve_end_event_data_t dependency_resolve_end;
     struct lore_repository_data_event_data_t repository_data;
     struct lore_repository_config_get_event_data_t repository_config_get;
+    struct lore_repository_seed_file_event_data_t repository_seed_file;
+    struct lore_repository_seed_end_event_data_t repository_seed_end;
     struct lore_repository_dump_begin_event_data_t repository_dump_begin;
     struct lore_repository_dump_end_event_data_t repository_dump_end;
     struct lore_repository_list_entry_event_data_t repository_list_entry;

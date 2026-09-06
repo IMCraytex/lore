@@ -78,6 +78,7 @@ pub enum LoreCommand {
     RepositoryClone(crate::repository::LoreRepositoryCloneArgs),
     RepositoryInfo(crate::repository::LoreRepositoryInfoArgs),
     RepositoryDump(crate::repository::LoreRepositoryDumpArgs),
+    RepositorySeed(crate::repository::LoreRepositorySeedArgs),
     RepositoryCreate(crate::repository::LoreRepositoryCreateArgs),
     RepositoryFlush(crate::repository::LoreRepositoryFlushArgs),
     RepositoryGc(crate::repository::LoreRepositoryGcArgs),

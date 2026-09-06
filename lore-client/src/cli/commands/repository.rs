@@ -18,6 +18,7 @@ use lore::interface::LoreNodeType;
 use lore::interface::LoreRepositoryCloneArgs;
 use lore::interface::LoreRepositoryCreateArgs;
 use lore::interface::LoreRepositoryDumpArgs;
+use lore::interface::LoreRepositorySeedArgs;
 use lore::interface::LoreRepositoryGcArgs;
 use lore::interface::LoreRepositoryInfoArgs;
 use lore::interface::LoreRepositoryListArgs;
@@ -249,6 +250,12 @@ pub struct RepositoryInfoArgs {
 }
 
 #[derive(Args)]
+pub struct RepositorySeedArgs {
+    /// Directory to read content from. It is only read, never modified.
+    pub source: String,
+}
+
+#[derive(Debug, clap::Args)]
 pub struct RepositoryDumpArgs {
     /// Optional path in the repository to start dumping from
     #[clap(long, value_name = "path")]
@@ -372,6 +379,10 @@ pub enum RepositoryCommands {
 
     /// Dump repository state information
     Dump(RepositoryDumpArgs),
+
+    /// Read files from a directory into the local store, so a later clone or
+    /// sync finds their content locally instead of downloading it
+    Seed(RepositorySeedArgs),
 
     /// Run a full garbage collection pass on the local repository store
     Gc,
@@ -1359,6 +1370,31 @@ pub fn handle_repository_verify_fragment(
     runtime().block_on(repository::verify_fragment(globals, verify_args, callback)) as u8
 }
 
+pub fn handle_repository_seed(globals: LoreGlobalArgs, source: &str) -> u8 {
+    let seed_args = LoreRepositorySeedArgs {
+        source: source.into(),
+    };
+
+    let callback = output_formatter().unwrap_or(Some(
+        (Box::new(move |event: &LoreEvent| match event {
+            LoreEvent::RepositorySeedEnd(data) => {
+                println!(
+                    "{}Seeded{} {} files, {} bytes ({} skipped)",
+                    CommonStyles::HEADERS,
+                    anstyle::Reset,
+                    data.file_count,
+                    data.byte_count,
+                    data.skipped_count
+                );
+            }
+            _ => (),
+        }) as EventCallbackFn)
+            .with_defaults(),
+    ));
+
+    lore::runtime().block_on(lore::repository::seed(globals, seed_args, callback)) as u8
+}
+
 pub fn handle_repository_dump(
     globals: LoreGlobalArgs,
     revision: &str,
@@ -1728,6 +1764,7 @@ pub fn handle_repository_commands(cmd: &RepositoryCommands, globals: LoreGlobalA
             args.path.as_deref().unwrap_or(""),
             args.max_depth.unwrap_or_default(),
         ),
+        RepositoryCommands::Seed(args) => handle_repository_seed(globals, &args.source),
         RepositoryCommands::Gc => handle_repository_gc(globals),
         RepositoryCommands::Store(args) => handle_repository_store(globals, args),
         RepositoryCommands::Metadata(args) => {

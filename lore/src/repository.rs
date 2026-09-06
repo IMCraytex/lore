@@ -326,6 +326,54 @@ async fn info_local(
         .await
 }
 
+/// Arguments for seeding the local store from files already on disk.
+#[repr(C)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, LoreArgs)]
+#[handler(seed_local)]
+pub struct LoreRepositorySeedArgs {
+    /// Directory to read content from. Only ever read, never modified.
+    pub source: LoreString,
+}
+
+/// Reads files from a directory into the local immutable store, so a clone or
+/// sync finds their fragments locally instead of fetching them.
+///
+/// Fragments are content-addressed, so a file only ever produces the address
+/// its bytes hash to: content the repository does not want is never referenced,
+/// and nothing in the seed directory is modified.
+///
+/// # Events
+///
+/// | Event | Description |
+/// |-------|-------------|
+/// | [`LoreEvent::RepositorySeedFile`](crate::interface::LoreEvent::RepositorySeedFile) | Emitted for each file read into the store |
+/// | [`LoreEvent::RepositorySeedEnd`](crate::interface::LoreEvent::RepositorySeedEnd) | Emitted with the totals when seeding completes |
+pub async fn seed(
+    globals: LoreGlobalArgs,
+    args: LoreRepositorySeedArgs,
+    callback: LoreEventCallback,
+) -> i32 {
+    dispatch_call(globals, args, callback, seed_local).await
+}
+
+async fn seed_local(
+    globals: LoreGlobalArgs,
+    args: LoreRepositorySeedArgs,
+    callback: LoreEventCallback,
+) -> i32 {
+    repository_call_read(globals, callback, args, seed, seed_impl).await
+}
+
+async fn seed_impl(
+    repository: Arc<RepositoryContext>,
+    args: LoreRepositorySeedArgs,
+) -> Result<(), RepositoryError> {
+    lore_revision::repository::seed::seed(repository, args.source.as_str())
+        .await
+        .forward::<RepositoryError>("Failed to seed the local store")?;
+    Ok(())
+}
+
 /// Arguments for dumping the internal state tree of the repository.
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, LoreArgs)]
