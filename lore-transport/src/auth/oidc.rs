@@ -126,8 +126,13 @@ async fn discover(issuer: &str) -> Result<ProviderMetadata, ProtocolError> {
         .await
         .map_err(|e| ProtocolError::internal(format!("reading discovery document: {e}")))?;
 
-    serde_json::from_str(&body)
-        .map_err(|e| ProtocolError::internal(format!("parsing discovery document at {url}: {e}")))
+    serde_json::from_str(&body).map_err(|e| {
+        let excerpt: String = body.chars().take(200).collect();
+        ProtocolError::internal(format!(
+            "parsing discovery document at {url}: {e}: {}",
+            excerpt.replace('\n', " ")
+        ))
+    })
 }
 
 /// Posts a form to a token or device endpoint and returns the response body.
@@ -158,23 +163,42 @@ fn authentication_token(
     access_token: String,
     refresh_token: Option<String>,
 ) -> Result<AuthenticationToken, ProtocolError> {
-    let info = lore_credential::user_info_from_token(access_token)
-        .ok_or_else(|| ProtocolError::internal("access token is not a readable JWT"))?;
+    let claims = read_claims(&access_token)?;
 
-    let user_name = if info.preferred_username.is_empty() {
-        info.name
-    } else {
-        info.preferred_username
-    };
+    let user_name = claims
+        .preferred_username
+        .or(claims.name)
+        .unwrap_or_default();
 
     Ok(AuthenticationToken {
-        token: info.token,
-        user_id: info.id,
+        token: access_token,
+        user_id: claims.user_id,
         user_name,
-        expires_ms: info.expires,
+        // JWT expiry is in seconds; Lore timestamps are milliseconds.
+        expires_ms: claims.expires.saturating_mul(1000),
         acceptable_root_domains: Vec::new(),
         refresh_token,
     })
+}
+
+/// Decodes an access token's claims without verifying it, naming the claim the
+/// issuer left out when one is missing.
+///
+/// The signature is the server's to check. This reads the identity the client
+/// records and the expiry it schedules a refresh against.
+fn read_claims(access_token: &str) -> Result<lore_credential::JWTUserInfo, ProtocolError> {
+    lore_credential::insecure_decode_token(access_token)
+        .map(|decoded| decoded.claims)
+        .map_err(|e| {
+            let segments = access_token.split('.').count();
+            if segments == 3 {
+                ProtocolError::internal(format!("reading the access token claims: {e}"))
+            } else {
+                ProtocolError::internal(format!(
+                    "the access token is not a JWT ({segments} segments, expected 3):                      the issuer has no signing key configured"
+                ))
+            }
+        })
 }
 
 /// Authentication implementation for OpenID Connect providers.
@@ -330,12 +354,11 @@ impl Authentication for OidcAuthentication {
         _resource_id: &str,
         _correlation_id: &str,
     ) -> Result<AuthorizationToken, ProtocolError> {
-        let info = lore_credential::user_info_from_token(authn_token.to_string())
-            .ok_or_else(|| ProtocolError::internal("access token is not a readable JWT"))?;
+        let claims = read_claims(authn_token)?;
 
         Ok(AuthorizationToken {
-            token: info.token,
-            expires_ms: info.expires,
+            token: authn_token.to_string(),
+            expires_ms: claims.expires.saturating_mul(1000),
             acceptable_root_domains: Vec::new(),
         })
     }

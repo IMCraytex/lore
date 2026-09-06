@@ -1051,6 +1051,10 @@ pub enum LoreEvent {
     RepositoryData(LoreRepositoryDataEventData),
     /// A repository configuration value.
     RepositoryConfigGet(LoreRepositoryConfigGetEventData),
+    /// One file read from a seed directory into the local store.
+    RepositorySeedFile(crate::repository::seed::LoreRepositorySeedFileEventData),
+    /// Totals for a completed seeding run.
+    RepositorySeedEnd(crate::repository::seed::LoreRepositorySeedEndEventData),
     /// The start of a repository dump.
     RepositoryDumpBegin(LoreRepositoryDumpBeginEventData),
     /// The end of a repository dump.

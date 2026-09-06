@@ -3997,6 +3997,7 @@ pub extern "C" fn lore_repository_info_async(
 }
 
 pub type LoreRepositoryDumpArgs = crate::repository::LoreRepositoryDumpArgs;
+pub type LoreRepositorySeedArgs = crate::repository::LoreRepositorySeedArgs;
 
 /// Dump the internal state of the repository for diagnostic purposes.
 ///

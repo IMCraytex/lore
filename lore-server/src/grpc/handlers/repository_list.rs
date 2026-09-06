@@ -24,6 +24,7 @@ use tracing::debug;
 use tracing::warn;
 
 use crate::authnz::auth::grpc_get_auth_client;
+use crate::authnz::repository_authorizer::is_auth_service;
 use crate::authnz::common::create_request_with_authorization;
 use crate::grpc::FilterSlowDownExt;
 use crate::grpc::ServerResultExt;
@@ -55,6 +56,11 @@ pub async fn handler(
     LORE_CONTEXT
         .scope(execution, async move {
             // TODO(mjansson): Change this to a streaming response
+            // An OIDC issuer is not a Lore auth service: dialling it speaks gRPC
+            // at a web server and fails at the HTTP/2 layer. Such a server lists
+            // locally, exactly as one with no auth service does — the token's own
+            // claims decide access, and the interceptor has already checked them.
+            let auth_url = auth_url.filter(|url| is_auth_service(url));
             let mut authorized_repositories = if let Some(auth_url) = auth_url {
                 let authorized_repositories =
                     lookup_authorized_repositories(auth_url, authorization).await?;
