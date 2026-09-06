@@ -29,6 +29,7 @@ use crate::grpc::ServerResultExt;
 use crate::grpc::extract_authorization_header;
 use crate::grpc::extract_correlation_id;
 use crate::grpc::get_user_id;
+use crate::authnz::repository_authorizer::is_auth_service;
 use crate::grpc::handlers::repository_list::lookup_authorized_repositories;
 use crate::util::setup_execution;
 
@@ -119,6 +120,11 @@ async fn list_candidate_ids(
     auth_url: Option<String>,
     authorization: Option<String>,
 ) -> Result<Vec<RepositoryId>, Status> {
+    // An OIDC issuer is not a Lore auth service: dialling it speaks gRPC at a
+    // web server and fails in the HTTP/2 layer. Such a server lists locally,
+    // exactly as one with no auth service does — the token's own claims decide
+    // access, and the interceptor has already checked them.
+    let auth_url = auth_url.filter(|url| is_auth_service(url));
     if let Some(auth_url) = auth_url {
         let ids = lookup_authorized_repositories(auth_url, authorization).await?;
         Ok(ids.into_iter().map(RepositoryId::from).collect())
